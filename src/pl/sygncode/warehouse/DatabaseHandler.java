@@ -4,9 +4,7 @@ import android.content.Context;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 
-/**
- * Created by sygnowsk on 2015-02-06.
- */
+
 public class DatabaseHandler extends SQLiteOpenHelper {
 
 
@@ -17,6 +15,23 @@ public class DatabaseHandler extends SQLiteOpenHelper {
     @Override
     public void onCreate(SQLiteDatabase db) {
 
+        String sql = "";
+        sql += "CREATE TABLE IF NOT EXISTS " + Storage.TABLE_NAME + "(";
+        sql += Storage.ID + " INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL" + ",";
+        sql += Storage.SUPER_ID + " INTEGER" + ",";
+        sql += Storage.NAME + " TEXT" + ",";
+        sql += Storage.FLAG + " INTEGER" + ",";
+        sql += Storage.SEQUENCE + " INTEGER";
+        sql += ");";
+
+
+        sql += "CREATE TABLE IF NOT EXISTS " + Item.TABLE_NAME + "(";
+        sql += Item.ID + " INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL" + ",";
+        sql += Item.STORAGE_ID + " INTEGER" + ",";
+        sql += Item.NAME + " TEXT";
+        sql += ");";
+
+        db.execSQL(sql);
     }
 
     @Override

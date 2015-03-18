@@ -12,5 +12,6 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <provider android:authorities="pl.sygncode.warehouse.provider.warehouse" android:name=".WarehouseContentProvider"></provider>
     </application>
 </manifest>
