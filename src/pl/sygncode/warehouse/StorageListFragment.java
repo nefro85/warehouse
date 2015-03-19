@@ -1,6 +1,8 @@
 package pl.sygncode.warehouse;
 
 
+import android.app.Fragment;
+import android.app.FragmentTransaction;
 import android.app.ListFragment;
 import android.app.LoaderManager;
 import android.content.Context;
@@ -13,13 +15,29 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.ListView;
 import android.widget.SimpleCursorAdapter;
 import android.widget.SimpleCursorAdapter.ViewBinder;
+
+import static pl.sygncode.warehouse.WarehouseContentProvider.storage;
+import static pl.sygncode.warehouse.WarehouseContentProvider.storageChildren;
 
 public class StorageListFragment extends ListFragment implements LoaderManager.LoaderCallbacks<Cursor> {
 
 
+    public static final String ARG_STORAGE_ID = "storageId";
+
+    public static Fragment fragmentOf(int storageId) {
+
+        Bundle bundle = new Bundle();
+        bundle.putInt(ARG_STORAGE_ID, storageId);
+        Fragment fragment = new StorageListFragment();
+        fragment.setArguments(bundle);
+        return fragment;
+    }
+
     private Adapter adapter;
+    private int superStorageId;
 
     private class Adapter extends SimpleCursorAdapter implements ViewBinder {
 
@@ -43,6 +61,13 @@ public class StorageListFragment extends ListFragment implements LoaderManager.L
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
+
+        Bundle args = getArguments();
+        if (args != null && args.containsKey(ARG_STORAGE_ID)) {
+            superStorageId = args.getInt(ARG_STORAGE_ID);
+        }
+
+
         setHasOptionsMenu(true);
 
         adapter = new Adapter(getActivity());
@@ -54,10 +79,24 @@ public class StorageListFragment extends ListFragment implements LoaderManager.L
     }
 
     @Override
+    public void onListItemClick(ListView l, View v, int position, long id) {
+        super.onListItemClick(l, v, position, id);
+
+        Cursor c = adapter.getCursor();
+        int columnIndex = c.getColumnIndex(Storage.ID);
+
+        FragmentTransaction tx = getFragmentManager().beginTransaction();
+        tx.replace(R.id.main_frame, fragmentOf(c.getInt(columnIndex)));
+        tx.addToBackStack(null);
+        tx.commit();
+
+    }
+
+    @Override
     public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
 
         MenuItem add = menu.add("Dodaj Magazyn");
-        add.setOnMenuItemClickListener(new ActionAddStorage(getActivity()) {
+        add.setOnMenuItemClickListener(new ActionAddStorage(getActivity(), superStorageId) {
             @Override
             protected Uri onAdd() {
                 Uri uri = super.onAdd();
@@ -74,7 +113,7 @@ public class StorageListFragment extends ListFragment implements LoaderManager.L
     @Override
     public Loader<Cursor> onCreateLoader(int i, Bundle bundle) {
 
-        Uri uri = WarehouseContentProvider.storage(0);
+        Uri uri = superStorageId == 0 ? storage(0) : storageChildren(superStorageId);
 
         return new CursorLoader(getActivity(), uri, Storage.PROJ, null, null, null);
     }

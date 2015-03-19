@@ -15,9 +15,11 @@ public class ActionAddStorage implements OnMenuItemClickListener, OnClickListene
 
     private EditText etName;
     private final Context context;
+    private final int superStorageId;
 
-    public ActionAddStorage(Context context) {
+    public ActionAddStorage(Context context, int superStorageId) {
         this.context = context;
+        this.superStorageId = superStorageId;
     }
 
     @Override
@@ -30,6 +32,9 @@ public class ActionAddStorage implements OnMenuItemClickListener, OnClickListene
     protected Uri onAdd() {
         ContentValues values = new ContentValues();
         values.put(Storage.NAME, etName.getText().toString());
+        if (superStorageId != 0) {
+            values.put(Storage.SUPER_ID, superStorageId);
+        }
 
         return context.getContentResolver().insert(WarehouseContentProvider.STORAGE, values);
     }
