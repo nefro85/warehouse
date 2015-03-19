@@ -22,7 +22,7 @@ public class WarehouseContentProvider extends ContentProvider implements Res {
     }
 
     public static Uri storageChildren(long superStorageId) {
-        return Uri.withAppendedPath(STORAGE, "/children/" + String.valueOf(superStorageId));
+        return Uri.withAppendedPath(STORAGE, "children/" + String.valueOf(superStorageId));
     }
 
     interface Match {
@@ -71,15 +71,22 @@ public class WarehouseContentProvider extends ContentProvider implements Res {
         Cursor c;
 
 
+        String last = uri.getLastPathSegment();
         int match = MATCHER.match(uri);
         switch (match) {
             case Match.STORAGE_CHILDREN:
-                String last = uri.getLastPathSegment();
 
                 if (!"0".equals(last)) {
                     selection = Storage.SUPER_ID + "=" + last;
                 }
 
+                break;
+            case Match.STORAGE_BY_ID:
+                if (!"0".equals(last)) {
+                    selection = Storage.ID + "=" + last;
+                } else {
+                    selection = Storage.SUPER_ID + " IS NULL";
+                }
                 break;
         }
 

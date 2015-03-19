@@ -18,6 +18,11 @@ import android.view.View;
 import android.widget.ListView;
 import android.widget.SimpleCursorAdapter;
 import android.widget.SimpleCursorAdapter.ViewBinder;
+import android.widget.TextView;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 import static pl.sygncode.warehouse.WarehouseContentProvider.storage;
 import static pl.sygncode.warehouse.WarehouseContentProvider.storageChildren;
@@ -54,8 +59,52 @@ public class StorageListFragment extends ListFragment implements LoaderManager.L
 
         @Override
         public boolean setViewValue(View view, Cursor cursor, int i) {
+
+            if (view.getId() == R.id.tvName) {
+
+                int id = cursor.getInt(cursor.getColumnIndexOrThrow(Storage.SUPER_ID));
+                if (0 != id) {
+                    List<String> names = new ArrayList<String>();
+                    names.add(cursor.getString(cursor.getColumnIndexOrThrow(Storage.NAME)));
+                    obtainName(names, id);
+
+
+                    Collections.reverse(names);
+                    String name = "";
+
+                    for (String n : names) {
+                        name += n + "/";
+                    }
+
+                    TextView tv = (TextView) view;
+                    tv.setText(name);
+
+                    return true;
+                }
+
+            }
+
             return false;
         }
+
+        void obtainName(List<String> nameList, int id) {
+
+            int superId = 0;
+            Cursor c = getActivity().getContentResolver().query(storage(id), Storage.PROJ, null, null, null);
+            if (c.moveToFirst()) {
+
+                int cIdx = c.getColumnIndex(Storage.SUPER_ID);
+                superId = c.getInt(cIdx);
+                nameList.add(c.getString(c.getColumnIndexOrThrow(Storage.NAME)));
+
+            }
+            c.close();
+
+            if (superId != 0) {
+                obtainName(nameList, superId);
+            }
+        }
+
     }
 
     @Override
