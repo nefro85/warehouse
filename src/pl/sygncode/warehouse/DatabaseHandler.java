@@ -21,14 +21,18 @@ public class DatabaseHandler extends SQLiteOpenHelper {
         sql += Storage.SUPER_ID + " INTEGER" + ",";
         sql += Storage.NAME + " TEXT" + ",";
         sql += Storage.FLAG + " INTEGER" + ",";
-        sql += Storage.SEQUENCE + " INTEGER";
+        sql += Storage.SEQUENCE + " INTEGER" + ",";
+        sql += Storage.COUNT + " INTEGER";
         sql += ");";
 
+        db.execSQL(sql);
+        sql = "";
 
         sql += "CREATE TABLE IF NOT EXISTS " + Item.TABLE_NAME + "(";
         sql += Item.ID + " INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL" + ",";
         sql += Item.STORAGE_ID + " INTEGER" + ",";
-        sql += Item.NAME + " TEXT";
+        sql += Item.NAME + " TEXT" + ",";
+        sql += Item.TYPE_NAME + " TEXT";
         sql += ");";
 
         db.execSQL(sql);

@@ -8,18 +8,14 @@ import android.content.DialogInterface;
 import android.content.DialogInterface.OnClickListener;
 import android.net.Uri;
 import android.view.MenuItem;
-import android.view.MenuItem.OnMenuItemClickListener;
 import android.widget.EditText;
 
-public class ActionAddStorage implements OnMenuItemClickListener, OnClickListener {
+public class ActionAddStorage extends StorageAction implements OnClickListener {
 
     private EditText etName;
-    private final Context context;
-    private final int superStorageId;
 
-    public ActionAddStorage(Context context, int superStorageId) {
-        this.context = context;
-        this.superStorageId = superStorageId;
+    public ActionAddStorage(Context context, int storageId) {
+        super(context, storageId);
     }
 
     @Override
@@ -32,8 +28,8 @@ public class ActionAddStorage implements OnMenuItemClickListener, OnClickListene
     protected Uri onAdd() {
         ContentValues values = new ContentValues();
         values.put(Storage.NAME, etName.getText().toString());
-        if (superStorageId != 0) {
-            values.put(Storage.SUPER_ID, superStorageId);
+        if (storageId != 0) {
+            values.put(Storage.SUPER_ID, storageId);
         }
 
         return context.getContentResolver().insert(WarehouseContentProvider.STORAGE, values);
@@ -44,6 +40,7 @@ public class ActionAddStorage implements OnMenuItemClickListener, OnClickListene
         AlertDialog.Builder bld = new AlertDialog.Builder(context);
 
         bld.setTitle("Dodaj Nowy Magazyn");
+        bld.setCancelable(false);
         etName = new EditText(context);
         bld.setView(etName);
         bld.setPositiveButton(android.R.string.ok, this);

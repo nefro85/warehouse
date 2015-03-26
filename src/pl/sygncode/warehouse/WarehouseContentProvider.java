@@ -25,12 +25,17 @@ public class WarehouseContentProvider extends ContentProvider implements Res {
         return Uri.withAppendedPath(STORAGE, "children/" + String.valueOf(superStorageId));
     }
 
+    public static Uri itemByStorage(long storageId) {
+        return Uri.withAppendedPath(ITEM, "storage/" + storageId);
+    }
+
     interface Match {
         int ITEM_LIST = 1;
         int ITEM_BY_ID = 2;
         int STORAGE_LIST = 3;
         int STORAGE_BY_ID = 4;
         int STORAGE_CHILDREN = 5;
+        int ITEM_BY_STORAGE = 6;
     }
 
     static {
@@ -40,6 +45,7 @@ public class WarehouseContentProvider extends ContentProvider implements Res {
         MATCHER.addURI(AUTHORITY, "storage", Match.STORAGE_LIST);
         MATCHER.addURI(AUTHORITY, "storage/#", Match.STORAGE_BY_ID);
         MATCHER.addURI(AUTHORITY, "storage/children/#", Match.STORAGE_CHILDREN);
+        MATCHER.addURI(AUTHORITY, "item/storage/#", Match.ITEM_BY_STORAGE);
     }
 
     private DatabaseHandler dbHnd;
@@ -57,6 +63,7 @@ public class WarehouseContentProvider extends ContentProvider implements Res {
         switch (match) {
             case Match.ITEM_BY_ID:
             case Match.ITEM_LIST:
+            case Match.ITEM_BY_STORAGE:
                 return Item.TABLE_NAME;
             case Match.STORAGE_BY_ID:
             case Match.STORAGE_LIST:
@@ -86,6 +93,11 @@ public class WarehouseContentProvider extends ContentProvider implements Res {
                     selection = Storage.ID + "=" + last;
                 } else {
                     selection = Storage.SUPER_ID + " IS NULL";
+                }
+                break;
+            case Match.ITEM_BY_STORAGE:
+                if (!"0".equals(last)) {
+                    selection = Item.STORAGE_ID + "=" + last;
                 }
                 break;
         }
