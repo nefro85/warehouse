@@ -1,19 +1,21 @@
 package pl.sygncode.warehouse;
 
 
-import android.app.Fragment;
-import android.app.FragmentTransaction;
-import android.app.ListFragment;
-import android.app.LoaderManager;
-import android.content.Context;
+import android.app.*;
+import android.app.AlertDialog.Builder;
+import android.content.ContentResolver;
 import android.content.CursorLoader;
+import android.content.DialogInterface;
+import android.content.DialogInterface.OnClickListener;
 import android.content.Loader;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.MenuItem.OnMenuItemClickListener;
 import android.view.View;
 import android.widget.ListView;
 import android.widget.SearchView;
@@ -27,8 +29,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import static pl.sygncode.warehouse.WarehouseContentProvider.storage;
-import static pl.sygncode.warehouse.WarehouseContentProvider.storageChildren;
+import static pl.sygncode.warehouse.WarehouseContentProvider.*;
 
 public class StorageListFragment extends ListFragment implements LoaderManager.LoaderCallbacks<Cursor> {
 
@@ -46,10 +47,14 @@ public class StorageListFragment extends ListFragment implements LoaderManager.L
 
     private Adapter adapter;
     private int superStorageId;
+    private String search;
+    private Uri mainUri;
 
-    private class Adapter extends SimpleCursorAdapter implements ViewBinder {
+    private static class Adapter extends SimpleCursorAdapter implements ViewBinder {
 
-        public Adapter(Context context) {
+        private final Activity activity;
+
+        public Adapter(Activity context) {
             super(context, R.layout.storage_list_item, null,
                     new String[]{
                             Storage.NAME,
@@ -62,6 +67,7 @@ public class StorageListFragment extends ListFragment implements LoaderManager.L
                             R.id.tvCount
                     });
             setViewBinder(this);
+            activity = context;
         }
 
         @Override
@@ -76,9 +82,12 @@ public class StorageListFragment extends ListFragment implements LoaderManager.L
 
                 if ((flag & Storage.FLAG_ITEM) == Storage.FLAG_ITEM) {
 
-                    Cursor c = getActivity().getContentResolver().query(WarehouseContentProvider.itemByStorage(id), Item.PROJ, null, null, null);
+                    Cursor c = activity.getContentResolver().query(WarehouseContentProvider.itemByStorage(id), Item.PROJ, null, null, null);
                     if (c.moveToFirst()) {
                         String name = c.getString(c.getColumnIndexOrThrow(Item.NAME));
+
+                        name += " (" + digName(id, null) + ")";
+
                         tv.setText(name);
                     }
                     c.close();
@@ -86,17 +95,7 @@ public class StorageListFragment extends ListFragment implements LoaderManager.L
                 } else {
 
                     if (0 != superStorageId) {
-                        List<String> names = new ArrayList<String>();
-                        names.add(cursor.getString(cursor.getColumnIndexOrThrow(Storage.NAME)));
-                        obtainName(names, superStorageId);
-
-
-                        Collections.reverse(names);
-                        String name = "";
-
-                        for (String n : names) {
-                            name += n + "/";
-                        }
+                        String name = getStorageName(cursor, superStorageId);
 
                         tv.setText(name);
                     }
@@ -121,10 +120,35 @@ public class StorageListFragment extends ListFragment implements LoaderManager.L
             return false;
         }
 
+        private String getStorageName(Cursor cursor, int storageId) {
+            List<String> names = new ArrayList<String>();
+            names.add(cursor.getString(cursor.getColumnIndexOrThrow(Storage.NAME)));
+            String name = digName(storageId, names);
+            return name;
+        }
+
+        private String digName(int storageId, List<String> names) {
+            if (names == null) {
+                names = new ArrayList<String>();
+            }
+            obtainName(names, storageId);
+
+
+            Collections.reverse(names);
+            String name = "";
+
+            for (String n : names) {
+                if (n != null) {
+                    name += n + "/";
+                }
+            }
+            return name;
+        }
+
         void obtainName(List<String> nameList, int id) {
 
             int superId = 0;
-            Cursor c = getActivity().getContentResolver().query(storage(id), Storage.PROJ, null, null, null);
+            Cursor c = activity.getContentResolver().query(storage(id), Storage.PROJ, null, null, null);
             if (c.moveToFirst()) {
 
                 int cIdx = c.getColumnIndex(Storage.SUPER_ID);
@@ -206,28 +230,65 @@ public class StorageListFragment extends ListFragment implements LoaderManager.L
 
         MenuItem item = menu.add("Szukaj");
         item.setIcon(android.R.drawable.ic_menu_search);
-        item.setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM
-                | MenuItem.SHOW_AS_ACTION_COLLAPSE_ACTION_VIEW);
-        SearchView search = new SearchView(getActivity());
-        search.setOnQueryTextListener(new OnQueryTextListener() {
+        item.setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
+        SearchView searchView = new SearchView(getActivity());
+        searchView.setOnQueryTextListener(new OnQueryTextListener() {
             @Override
             public boolean onQueryTextSubmit(String s) {
-                return false;
+                search = s;
+                getLoaderManager().restartLoader(Res.LOADER_STORAGE, null, StorageListFragment.this);
+                return true;
             }
 
             @Override
             public boolean onQueryTextChange(String s) {
+                search = s;
+                getLoaderManager().restartLoader(Res.LOADER_STORAGE, null, StorageListFragment.this);
                 return false;
             }
         });
-        search.setOnCloseListener(new OnCloseListener() {
+        searchView.setOnCloseListener(new OnCloseListener() {
             @Override
             public boolean onClose() {
-                return false;
+                search = null;
+                getLoaderManager().restartLoader(Res.LOADER_STORAGE, null, StorageListFragment.this);
+                return true;
             }
         });
-        search.setIconifiedByDefault(true);
-        item.setActionView(search);
+        searchView.setIconifiedByDefault(true);
+        item.setActionView(searchView);
+
+
+        MenuItem delete = menu.add("Skasuj");
+        delete.setIcon(android.R.drawable.ic_menu_delete);
+
+        delete.setOnMenuItemClickListener(new OnMenuItemClickListener() {
+            @Override
+            public boolean onMenuItemClick(MenuItem menuItem) {
+
+                AlertDialog.Builder b = new Builder(getActivity());
+                b.setTitle("Skasuj");
+
+                Adapter adapter = new Adapter(getActivity());
+                final ContentResolver cr = getActivity().getContentResolver();
+                final Cursor cursor = cr.query(mainUri, Storage.PROJ, null, null, null);
+                adapter.swapCursor(cursor);
+
+                b.setAdapter(adapter, new OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+
+                        long id = cursor.getLong(cursor.getColumnIndexOrThrow(Storage.ID));
+                        cr.delete(storage(id), null, null);
+
+                        getLoaderManager().restartLoader(Res.LOADER_STORAGE, null, StorageListFragment.this);
+                    }
+                });
+                b.show();
+
+                return true;
+            }
+        });
 
         super.onCreateOptionsMenu(menu, inflater);
     }
@@ -235,9 +296,14 @@ public class StorageListFragment extends ListFragment implements LoaderManager.L
     @Override
     public Loader<Cursor> onCreateLoader(int i, Bundle bundle) {
 
-        Uri uri = superStorageId == 0 ? storage(0) : storageChildren(superStorageId);
+        if (!TextUtils.isEmpty(search)) {
+            mainUri = search(search);
+        } else {
 
-        return new CursorLoader(getActivity(), uri, Storage.PROJ, null, null, null);
+            mainUri = superStorageId == 0 ? storage(0) : storageChildren(superStorageId);
+        }
+
+        return new CursorLoader(getActivity(), mainUri, Storage.PROJ, null, null, null);
     }
 
     @Override

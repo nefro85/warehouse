@@ -7,6 +7,10 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.net.Uri;
 
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Set;
+
 public class WarehouseContentProvider extends ContentProvider implements Res {
 
     public static final UriMatcher MATCHER;
@@ -29,6 +33,10 @@ public class WarehouseContentProvider extends ContentProvider implements Res {
         return Uri.withAppendedPath(ITEM, "storage/" + storageId);
     }
 
+    public static Uri search(String search) {
+        return Uri.parse(CONTENT + "search/" + search);
+    }
+
     interface Match {
         int ITEM_LIST = 1;
         int ITEM_BY_ID = 2;
@@ -36,6 +44,7 @@ public class WarehouseContentProvider extends ContentProvider implements Res {
         int STORAGE_BY_ID = 4;
         int STORAGE_CHILDREN = 5;
         int ITEM_BY_STORAGE = 6;
+        int SEARCH = 7;
     }
 
     static {
@@ -46,6 +55,7 @@ public class WarehouseContentProvider extends ContentProvider implements Res {
         MATCHER.addURI(AUTHORITY, "storage/#", Match.STORAGE_BY_ID);
         MATCHER.addURI(AUTHORITY, "storage/children/#", Match.STORAGE_CHILDREN);
         MATCHER.addURI(AUTHORITY, "item/storage/#", Match.ITEM_BY_STORAGE);
+        MATCHER.addURI(AUTHORITY, "search/*", Match.SEARCH);
     }
 
     private DatabaseHandler dbHnd;
@@ -103,11 +113,33 @@ public class WarehouseContentProvider extends ContentProvider implements Res {
         }
 
         final SQLiteDatabase db = dbHnd.getReadableDatabase();
+        if (match == Match.SEARCH) {
 
+            String like = Item.NAME + " LIKE " + "'" + last + "%'";
+            c = db.query(Item.TABLE_NAME, new String[]{Item.STORAGE_ID, Item.NAME}, like, null, null, null, Item.NAME);
 
-        c = db.query(tab(uri), projection, selection, selectionArgs, null, null, sortOrder);
+            Set<Long> ids = new HashSet<Long>();
+            if (c.moveToFirst()) {
+                do {
+                    ids.add(c.getLong(c.getColumnIndexOrThrow(Item.STORAGE_ID)));
+                } while (c.moveToNext());
+            }
+            c.close();
 
+            String in = "";
+            for (Iterator<Long> it = ids.iterator(); it.hasNext(); ) {
+                in += it.next();
+                if (it.hasNext()) {
+                    in += ",";
+                }
+            }
 
+            String sel = Storage.ID + " IN (" + in + ")";
+            c = db.query(Storage.TABLE_NAME, Storage.PROJ, sel, null, null, null, null);
+
+        } else {
+            c = db.query(tab(uri), projection, selection, selectionArgs, null, null, sortOrder);
+        }
         return c;
     }
 
@@ -134,6 +166,13 @@ public class WarehouseContentProvider extends ContentProvider implements Res {
 
     @Override
     public int delete(Uri uri, String selection, String[] selectionArgs) {
+        switch (MATCHER.match(uri)) {
+            case Match.STORAGE_BY_ID:
+
+                return dbHnd.getReadableDatabase().delete(Storage.TABLE_NAME, Storage.ID + "=" + uri.getLastPathSegment(), null);
+
+        }
+
         return 0;
     }
 
