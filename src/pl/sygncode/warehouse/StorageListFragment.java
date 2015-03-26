@@ -12,21 +12,16 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.TextUtils;
-import android.view.Menu;
-import android.view.MenuInflater;
-import android.view.MenuItem;
+import android.view.*;
 import android.view.MenuItem.OnMenuItemClickListener;
-import android.view.View;
-import android.widget.ListView;
-import android.widget.SearchView;
+import android.widget.*;
 import android.widget.SearchView.OnCloseListener;
 import android.widget.SearchView.OnQueryTextListener;
-import android.widget.SimpleCursorAdapter;
 import android.widget.SimpleCursorAdapter.ViewBinder;
-import android.widget.TextView;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 
 import static pl.sygncode.warehouse.WarehouseContentProvider.*;
@@ -44,6 +39,12 @@ public class StorageListFragment extends ListFragment implements LoaderManager.L
         fragment.setArguments(bundle);
         return fragment;
     }
+
+    private static boolean isItem(Cursor cursor) {
+        int flag = cursor.getInt(cursor.getColumnIndexOrThrow(Storage.FLAG));
+        return (flag & Storage.FLAG_ITEM) == Storage.FLAG_ITEM;
+    }
+
 
     private Adapter adapter;
     private int superStorageId;
@@ -71,22 +72,37 @@ public class StorageListFragment extends ListFragment implements LoaderManager.L
         }
 
         @Override
+        public View getView(int position, View convertView, ViewGroup parent) {
+            final View view = super.getView(position, convertView, parent);
+
+            Cursor cursor = getCursor();
+            boolean isItem = isItem(cursor);
+            int typeIcon = isItem ? R.drawable.ic_item : R.drawable.ic_storage;
+            ImageView type = (ImageView) view.findViewById(R.id.icType);
+            type.setImageResource(typeIcon);
+
+            int superStorageId = cursor.getInt(cursor.getColumnIndexOrThrow(Storage.SUPER_ID));
+
+            TextView loc = (TextView) view.findViewById(R.id.tvLoc);
+            loc.setText(isItem ? getStorageName(cursor, superStorageId) : digName(superStorageId, null));
+
+
+            return view;
+        }
+
+        @Override
         public boolean setViewValue(View view, Cursor cursor, int i) {
 
             if (view.getId() == R.id.tvName) {
                 final TextView tv = (TextView) view;
 
-                int superStorageId = cursor.getInt(cursor.getColumnIndexOrThrow(Storage.SUPER_ID));
                 int id = cursor.getInt(cursor.getColumnIndexOrThrow(Storage.ID));
-                int flag = cursor.getInt(cursor.getColumnIndexOrThrow(Storage.FLAG));
 
-                if ((flag & Storage.FLAG_ITEM) == Storage.FLAG_ITEM) {
+                if (isItem(cursor)) {
 
                     Cursor c = activity.getContentResolver().query(WarehouseContentProvider.itemByStorage(id), Item.PROJ, null, null, null);
                     if (c.moveToFirst()) {
                         String name = c.getString(c.getColumnIndexOrThrow(Item.NAME));
-
-                        name += " (" + digName(id, null) + ")";
 
                         tv.setText(name);
                     }
@@ -94,11 +110,8 @@ public class StorageListFragment extends ListFragment implements LoaderManager.L
 
                 } else {
 
-                    if (0 != superStorageId) {
-                        String name = getStorageName(cursor, superStorageId);
-
-                        tv.setText(name);
-                    }
+                    String name = cursor.getString(cursor.getColumnIndexOrThrow(Storage.NAME));
+                    tv.setText(name);
                 }
 
                 return true;
@@ -131,15 +144,18 @@ public class StorageListFragment extends ListFragment implements LoaderManager.L
             if (names == null) {
                 names = new ArrayList<String>();
             }
-            obtainName(names, storageId);
+            if (storageId != 0) {
+                obtainName(names, storageId);
+            }
 
 
             Collections.reverse(names);
             String name = "";
 
-            for (String n : names) {
+            for (Iterator<String> it = names.iterator(); it.hasNext(); ) {
+                String n = it.next();
                 if (n != null) {
-                    name += n + "/";
+                    name += n + (it.hasNext() ? "/" : "");
                 }
             }
             return name;
@@ -153,8 +169,10 @@ public class StorageListFragment extends ListFragment implements LoaderManager.L
 
                 int cIdx = c.getColumnIndex(Storage.SUPER_ID);
                 superId = c.getInt(cIdx);
-                nameList.add(c.getString(c.getColumnIndexOrThrow(Storage.NAME)));
-
+                String name = c.getString(c.getColumnIndexOrThrow(Storage.NAME));
+                if (name != null) {
+                    nameList.add(name);
+                }
             }
             c.close();
 
@@ -164,6 +182,7 @@ public class StorageListFragment extends ListFragment implements LoaderManager.L
         }
 
     }
+
 
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
@@ -190,22 +209,23 @@ public class StorageListFragment extends ListFragment implements LoaderManager.L
         super.onListItemClick(l, v, position, id);
 
         Cursor c = adapter.getCursor();
-        int columnIndex = c.getColumnIndex(Storage.ID);
 
-        FragmentTransaction tx = getFragmentManager().beginTransaction();
-        tx.replace(R.id.main_frame, fragmentOf(c.getInt(columnIndex)));
-        tx.addToBackStack(null);
-        tx.commit();
+        if (!isItem(c)) {
+
+            int columnIndex = c.getColumnIndex(Storage.ID);
+
+            FragmentTransaction tx = getFragmentManager().beginTransaction();
+            tx.replace(R.id.main_frame, fragmentOf(c.getInt(columnIndex)));
+            tx.addToBackStack(null);
+            tx.commit();
+        }
 
     }
 
     @Override
     public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
 
-        MenuItem add = menu.add("Dodaj Magazyn");
-        add.setIcon(android.R.drawable.ic_menu_add);
-        add.setShowAsActionFlags(MenuItem.SHOW_AS_ACTION_ALWAYS | MenuItem.SHOW_AS_ACTION_WITH_TEXT);
-        add.setOnMenuItemClickListener(new ActionAddStorage(getActivity(), superStorageId) {
+        new ActionAddStorage(getActivity(), superStorageId) {
             @Override
             protected Uri onAdd() {
                 Uri uri = super.onAdd();
@@ -214,23 +234,22 @@ public class StorageListFragment extends ListFragment implements LoaderManager.L
 
                 return uri;
             }
-        });
+        }.attach(menu);
 
-        MenuItem addItem = menu.add("Dodaj Przedmiot");
-        addItem.setIcon(android.R.drawable.ic_input_add);
-        addItem.setShowAsActionFlags(MenuItem.SHOW_AS_ACTION_ALWAYS | MenuItem.SHOW_AS_ACTION_WITH_TEXT);
-        addItem.setOnMenuItemClickListener(new ActionAddItem(getActivity(), superStorageId) {
-            @Override
-            protected void onAdd() {
-                super.onAdd();
+        if (superStorageId != 0) {
+            new ActionAddItem(getActivity(), superStorageId) {
+                @Override
+                protected void onAdd() {
+                    super.onAdd();
 
-                getLoaderManager().restartLoader(Res.LOADER_STORAGE, null, StorageListFragment.this);
-            }
-        });
+                    getLoaderManager().restartLoader(Res.LOADER_STORAGE, null, StorageListFragment.this);
+                }
+            }.attach(menu);
+        }
 
         MenuItem item = menu.add("Szukaj");
         item.setIcon(android.R.drawable.ic_menu_search);
-        item.setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
+        item.setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM | MenuItem.SHOW_AS_ACTION_COLLAPSE_ACTION_VIEW);
         SearchView searchView = new SearchView(getActivity());
         searchView.setOnQueryTextListener(new OnQueryTextListener() {
             @Override

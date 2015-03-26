@@ -135,7 +135,7 @@ public class WarehouseContentProvider extends ContentProvider implements Res {
             }
 
             String sel = Storage.ID + " IN (" + in + ")";
-            c = db.query(Storage.TABLE_NAME, Storage.PROJ, sel, null, null, null, null);
+            c = db.query(Storage.TABLE_NAME, Storage.PROJ, sel, null, null, null, Storage.FLAG);
 
         } else {
             c = db.query(tab(uri), projection, selection, selectionArgs, null, null, sortOrder);
@@ -169,7 +169,18 @@ public class WarehouseContentProvider extends ContentProvider implements Res {
         switch (MATCHER.match(uri)) {
             case Match.STORAGE_BY_ID:
 
-                return dbHnd.getReadableDatabase().delete(Storage.TABLE_NAME, Storage.ID + "=" + uri.getLastPathSegment(), null);
+                SQLiteDatabase db = dbHnd.getReadableDatabase();
+                String id = uri.getLastPathSegment();
+                int deleteCount = db.delete(Storage.TABLE_NAME, Storage.ID + "=" + id, null);
+
+                if (!"0".equals(id)) {
+                    String where = Storage.SUPER_ID + "=" + id;
+                    deleteCount += db.delete(Storage.TABLE_NAME, where, null);
+
+                    deleteCount += db.delete(Item.TABLE_NAME, Item.STORAGE_ID + "=" + id, null);
+                }
+
+                return deleteCount;
 
         }
 

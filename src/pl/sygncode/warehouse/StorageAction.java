@@ -2,6 +2,7 @@ package pl.sygncode.warehouse;
 
 
 import android.content.Context;
+import android.view.Menu;
 import android.view.MenuItem;
 
 public abstract class StorageAction implements MenuItem.OnMenuItemClickListener {
@@ -14,4 +15,7 @@ public abstract class StorageAction implements MenuItem.OnMenuItemClickListener 
         this.context = context;
         this.storageId = storageId;
     }
+
+
+    abstract protected void attach(Menu menu);
 }

@@ -7,6 +7,7 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.DialogInterface.OnClickListener;
 import android.net.Uri;
+import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.EditText;
 
@@ -16,6 +17,14 @@ public class ActionAddStorage extends StorageAction implements OnClickListener {
 
     public ActionAddStorage(Context context, int storageId) {
         super(context, storageId);
+    }
+
+    @Override
+    protected void attach(Menu menu) {
+        MenuItem add = menu.add("Dodaj Magazyn");
+        add.setIcon(android.R.drawable.ic_menu_add);
+        add.setShowAsActionFlags(MenuItem.SHOW_AS_ACTION_ALWAYS | MenuItem.SHOW_AS_ACTION_WITH_TEXT);
+        add.setOnMenuItemClickListener(this);
     }
 
     @Override
